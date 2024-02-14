@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "137193838260",
+    "project_id": "chat-room---flutter",
+    "storage_bucket": "chat-room---flutter.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:137193838260:android:480b5825285fd39dea69e1",
+        "android_client_info": {
+          "package_name": "com.example.chat_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHr0yqtLi6KCeDBQTbrOGzRa85IxEgoxU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
