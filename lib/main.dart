@@ -6,6 +6,8 @@ import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 // import 'package:google_sign_in/google_sign_in.dart';
 
+import 'package:flutter_login/flutter_login.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -120,13 +122,21 @@ class _FriendsListScreenState extends State<FriendsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Friends List"),
-        //  backgroundColor: Colors.deepPurple,
+        title: const Text(
+          "Friends List",
+          style: TextStyle(color: Colors.white), // 將文字設置為白色
+        ),
+        backgroundColor: const Color.fromARGB(255, 118, 74, 194),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(
+              Icons.add_box_rounded,
+              color: Colors.white, // 设置图标颜色为白色
+              size: 30.0,
+            ),
             onPressed: () {
               Navigator.push(
                 context,
@@ -150,37 +160,87 @@ class _FriendsListScreenState extends State<FriendsListScreen> {
             if (snapshot.data!.isEmpty) {
               return const Center(child: Text("No friends found."));
             } else {
-              return ListView.separated(
+              return ListView.builder(
+                padding: const EdgeInsets.only(top: 10.0),
                 itemCount: snapshot.data!.length,
                 itemBuilder: (ctx, index) {
                   final friend = snapshot.data![index];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.deepPurple,
-                      child:
-                          Text(friend.email[0].toUpperCase()), // 使用好友邮箱的首字母作为头像
+                  return Card(
+                    margin: const EdgeInsets.all(8.0),
+                    elevation: 4.0, // 控制阴影大小
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0), // 设置圆角大小
                     ),
-                    title: Text(friend.email), // 这里可以替换为 friend.name
-                    subtitle: Text("Tap to chat"), // 可以添加状态消息或最后消息预览
-                    onTap: () => _navigateToChatRoom(friend.uid),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Color.fromARGB(255, 148, 107, 209),
+                        child: Text(friend.email[0].toUpperCase()),
+                      ),
+                      title: Text(
+                          friend.email), // 假设你有 friend.name，可以使用 name 替代 email
+                      subtitle: const Text("Tap to chat"),
+                      onTap: () => _navigateToChatRoom(friend.uid),
+                    ),
                   );
                 },
-                separatorBuilder: (context, index) => Divider(),
               );
             }
           }
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const FriendRequestsScreen()),
+      floatingActionButton: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('friendships')
+            .where('status', isEqualTo: 'pending')
+            .where('accepter', isEqualTo: currentUserUid)
+            .snapshots(),
+        builder: (context, snapshot) {
+          bool hasNewRequests =
+              snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+          return Stack(
+            children: [
+              FloatingActionButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const FriendRequestsScreen()),
+                  );
+                },
+                backgroundColor: Color.fromARGB(255, 141, 111, 197),
+                child: const Icon(
+                  Icons.person_add,
+                  color: Colors.white, // 设置图标颜色
+                  size: 40.0, // 设置图标大小为30单位
+                ),
+              ),
+              if (hasNewRequests)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: BoxConstraints(
+                      minWidth: 12,
+                      minHeight: 12,
+                    ),
+                    child: Text(
+                      '!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           );
         },
-        backgroundColor: Colors.deepPurple,
-        child: const Icon(Icons.person_add),
       ),
     );
   }
@@ -211,6 +271,7 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
               controller: _emailController,
               decoration: const InputDecoration(labelText: 'Friend\'s Email'),
             ),
+            SizedBox(height: 16.0),
             ElevatedButton(
               onPressed: _sendFriendRequest,
               child: const Text('Add Friend'),
@@ -328,27 +389,41 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                           // 成功获取到用户数据，显示电子邮件
                           String email =
                               snapshot.data!['email'] ?? 'Unknown email';
-                          return ListTile(
-                            title: Text('Request from $email'), // 显示请求者的电子邮件
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.check),
-                                  onPressed: () => _acceptRequest(doc.id,
-                                      doc['requester'], currentUser!.uid),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.close),
-                                  onPressed: () => _declineRequest(doc.id),
-                                ),
-                              ],
+                          return Card(
+                            margin: const EdgeInsets.symmetric(
+                                vertical: 4.0, horizontal: 8.0),
+
+                            elevation: 4.0, // 控制阴影大小
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(10.0), // 设置圆角大小
+                            ),
+                            child: ListTile(
+                              title: Text('$email'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.check),
+                                    onPressed: () => _acceptRequest(doc.id,
+                                        doc['requester'], currentUser.uid),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () => _declineRequest(doc.id),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         } else {
                           // 数据加载中或加载失败
-                          return ListTile(
-                            title: const Text('Loading...'),
+                          return Card(
+                            margin: const EdgeInsets.symmetric(
+                                vertical: 4.0, horizontal: 8.0),
+                            child: const ListTile(
+                              title: Text('Loading...'),
+                            ),
                           );
                         }
                       },
@@ -394,87 +469,90 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
         .collection('friendships')
         .doc(docId)
         .delete();
-    // 或者，更新状态为declined（取决于您的应用逻辑）
-    await FirebaseFirestore.instance
-        .collection('friendships')
-        .doc(docId)
-        .update({
-      'status': 'declined',
-    });
   }
 }
 
 // Login or Register Page
 class InitialScreen extends StatelessWidget {
-  const InitialScreen({super.key});
+  const InitialScreen({Key? key}) : super(key: key);
+
+  Future<String?> _authUser(LoginData data) async {
+    try {
+      final userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: data.name,
+        password: data.password,
+      );
+      final user = userCredential.user;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'lastLogin': FieldValue.serverTimestamp(),
+        });
+      }
+      return null; // 登錄成功
+    } on FirebaseAuthException catch (e) {
+      return e.message; // 返回Firebase錯誤信息
+    }
+  }
+
+  Future<String?> _signupUser(SignupData data) async {
+    try {
+      final userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: data.name!,
+        password: data.password!,
+      );
+      final user = userCredential.user;
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'email': user.email,
+          'uid': user.uid,
+        });
+      }
+      return null; // 註冊成功
+    } on FirebaseAuthException catch (e) {
+      return e.message; // 返回Firebase錯誤信息
+    }
+  }
+
+  Future<String?> _recoverPassword(String name) async {
+    // 實現密碼恢復邏輯
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: name);
+      return null; // 表示成功發送密碼重置郵件
+    } catch (e) {
+      return e.toString(); // 返回錯誤信息
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Welcome to Flutter Chat"),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              const Text(
-                "Welcome to Flutter Chat Demo",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24.0,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const LoginScreen(isLogin: true)),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.deepPurple, // 文字颜色
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30.0),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                ),
-                child: const Text("Login"),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) =>
-                            const LoginScreen(isLogin: false)),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.orange, // 文字颜色
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30.0),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                ),
-                child: const Text("Register"),
-              ),
-            ],
-          ),
+    return FlutterLogin(
+      title: 'Flutter Chat Demo',
+      logo: 'assets/logo.png',
+      theme: LoginTheme(
+        logoWidth: 400,
+        // 定義標題字體樣式
+        titleStyle: TextStyle(
+          fontFamily: 'Roboto',
+          color: Colors.white, // 設定字體顏色
+          fontSize: 30, // 字體大小
+          fontWeight: FontWeight.bold, // 字重
         ),
       ),
+      // 設定其他flutter_login選項
+      onLogin: _authUser,
+      onSignup: _signupUser,
+      onRecoverPassword: _recoverPassword,
+      onSubmitAnimationCompleted: () {
+        // 登錄或註冊成功後的導航處理
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (context) => const FriendsListScreen(), // 導航到主畫面
+        ));
+      },
     );
   }
 }
@@ -509,6 +587,7 @@ class _LoginScreenState extends State<LoginScreen> {
             .update({
           'lastLogin': FieldValue.serverTimestamp(),
         });
+
         // 跳转到好友列表页面
         Navigator.pushReplacement(
           context,
@@ -539,13 +618,13 @@ class _LoginScreenState extends State<LoginScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('登录失败'),
+        title: const Text('Login Error'),
         content: Text(message),
         actions: <Widget>[
           TextButton(
-            child: const Text('确定'),
+            child: const Text('OK!'),
             onPressed: () {
-              Navigator.of(ctx).pop(); // 关闭对话框
+              Navigator.of(ctx).pop();
             },
           ),
         ],
@@ -561,11 +640,26 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       final user = userCredential.user;
       if (user != null) {
-        // 将用户信息存储到Firestore
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'email': user.email,
-          'uid': user.uid,
-        });
+        // // 将用户信息存储到Firestore
+        // await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        //   'email': user.email,
+        //   'uid': user.uid,
+        // });
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set({
+            'email': user.email,
+            'uid': user.uid,
+          });
+
+          print("====================================");
+          print("User data successfully written to Firestore.");
+        } catch (e) {
+          print("====================================");
+          print("Error writing user data to Firestore: $e");
+        }
 
         // 跳转到好友列表页面
         Navigator.pushReplacement(
@@ -818,7 +912,6 @@ class _NewMessageState extends State<NewMessage> {
       'text': text,
       'createdAt': Timestamp.now(),
       'senderId': currentUser.uid,
-      // 可能还需要包括发送者信息，如 'senderId': FirebaseAuth.instance.currentUser?.uid,
     }).then((_) {
       print("---------------------------------------------------");
       print("Message added to the collection");
@@ -841,10 +934,15 @@ class _NewMessageState extends State<NewMessage> {
               controller: _controller,
               decoration: InputDecoration(
                 labelText: 'Send a message...',
+                labelStyle: const TextStyle(color: Colors.deepPurple),
                 filled: true,
                 fillColor: Colors.deepPurple[50],
-                border: OutlineInputBorder(
-                  borderSide: BorderSide.none,
+                enabledBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: Colors.deepPurple),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: Colors.deepOrange),
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
@@ -859,3 +957,81 @@ class _NewMessageState extends State<NewMessage> {
     );
   }
 }
+
+
+
+
+
+// class InitialScreen extends StatelessWidget {
+//   const InitialScreen({super.key});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(
+//         title: const Text("Welcome to Flutter Chat"),
+//         centerTitle: true,
+//       ),
+//       body: Center(
+//         child: Padding(
+//           padding: const EdgeInsets.all(16.0),
+//           child: Column(
+//             mainAxisAlignment: MainAxisAlignment.center,
+//             children: <Widget>[
+//               const Text(
+//                 "Welcome to Flutter Chat Demo",
+//                 textAlign: TextAlign.center,
+//                 style: TextStyle(
+//                   fontSize: 24.0,
+//                   fontWeight: FontWeight.bold,
+//                   color: Colors.deepPurple,
+//                 ),
+//               ),
+//               const SizedBox(height: 20),
+//               ElevatedButton(
+//                 onPressed: () {
+//                   Navigator.push(
+//                     context,
+//                     MaterialPageRoute(
+//                         builder: (context) => const LoginScreen(isLogin: true)),
+//                   );
+//                 },
+//                 style: ElevatedButton.styleFrom(
+//                   foregroundColor: Colors.white,
+//                   backgroundColor: Colors.deepPurple, // 文字颜色
+//                   shape: RoundedRectangleBorder(
+//                     borderRadius: BorderRadius.circular(30.0),
+//                   ),
+//                   padding:
+//                       const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+//                 ),
+//                 child: const Text("Login"),
+//               ),
+//               const SizedBox(height: 10),
+//               ElevatedButton(
+//                 onPressed: () {
+//                   Navigator.push(
+//                     context,
+//                     MaterialPageRoute(
+//                         builder: (context) =>
+//                             const LoginScreen(isLogin: false)),
+//                   );
+//                 },
+//                 style: ElevatedButton.styleFrom(
+//                   foregroundColor: Colors.white,
+//                   backgroundColor: Colors.orange, // 文字颜色
+//                   shape: RoundedRectangleBorder(
+//                     borderRadius: BorderRadius.circular(30.0),
+//                   ),
+//                   padding:
+//                       const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+//                 ),
+//                 child: const Text("Register"),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
